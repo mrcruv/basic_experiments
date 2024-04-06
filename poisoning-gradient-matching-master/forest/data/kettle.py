@@ -594,6 +594,20 @@ class Kettle():
             with open(os.path.join(sub_path, 'base_indices.pickle'), 'wb+') as file:
                 pickle.dump(self.poison_ids, file, protocol=pickle.HIGHEST_PROTOCOL)
 
+        elif mode == 'pickled':
+            poison_results_path = 'poisons/results.pickle'
+            poison_results = dict(
+                budget=self.poison_setup["poison_budget"],
+                n_poisons=len(self.poisonset),
+                n_targets=len(self.targetset),
+                poison_delta=poison_delta,
+                poisons=dict(zip(self.poison_ids, self.poisonset.targets)),
+                targets=dict(zip(self.target_ids, self.targetset.targets)),
+                target_intended_label=self.poison_setup["intended_class"]
+            )
+            with open(poison_results_path, 'wb') as filehandle:
+                pickle.dump(poison_results, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+
         else:
             raise NotImplementedError()
 

@@ -1,4 +1,5 @@
 """General interface script to launch poisoning jobs."""
+import pickle
 
 import torch
 
@@ -56,7 +57,6 @@ if __name__ == "__main__":
             stats_results = None
     test_time = time.time()
 
-
     timestamps = dict(train_time=str(datetime.timedelta(seconds=train_time - start_time)).replace(',', ''),
                       brew_time=str(datetime.timedelta(seconds=brew_time - train_time)).replace(',', ''),
                       test_time=str(datetime.timedelta(seconds=test_time - brew_time)).replace(',', ''))
@@ -75,3 +75,8 @@ if __name__ == "__main__":
     print(f'--------------------------- brew time: {str(datetime.timedelta(seconds=brew_time - train_time))}')
     print(f'--------------------------- test time: {str(datetime.timedelta(seconds=test_time - brew_time))}')
     print('-------------Job finished.-------------------------')
+
+    if args.save == 'pickled':
+        with open('poisons/results.pickle', 'rb') as filehandle:
+            poison_results = pickle.load(filehandle)
+        print(poison_results)
