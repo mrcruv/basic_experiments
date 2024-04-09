@@ -43,7 +43,8 @@ class Kettle():
 
     """
 
-    def __init__(self, args, batch_size, augmentations, setup=dict(device=torch.device('cpu'), dtype=torch.float)):
+    def __init__(self, args, batch_size, augmentations, setup=dict(device=torch.device('cpu'), dtype=torch.float),
+                 train_ids=None, poison_ids=None, poison_results=None):
         """Initialize with given specs..."""
         self.args, self.setup = args, setup
         self.batch_size = batch_size
@@ -61,36 +62,45 @@ class Kettle():
             self.validset = CachedDataset(self.validset, num_workers=num_workers)
             num_workers = 0
 
-        if self.args.poisonkey is None:
-            if self.args.benchmark != '':
-                with open(self.args.benchmark, 'rb') as handle:
-                    setup_dict = pickle.load(handle)
-                self.benchmark_construction(setup_dict[self.args.benchmark_idx])  # using the first setup dict for benchmarking
+        if poison_results is None:
+            if self.args.poisonkey is None:
+                if self.args.benchmark != '':
+                    with open(self.args.benchmark, 'rb') as handle:
+                        setup_dict = pickle.load(handle)
+                    self.benchmark_construction(setup_dict[self.args.benchmark_idx])  # using the first setup dict for benchmarking
+                else:
+                    self.random_construction()
             else:
-                self.random_construction()
-
-
+                if '-' in self.args.poisonkey:
+                    # If the poisonkey contains a dash-separated triplet like 5-3-1, then poisons are drawn
+                    # entirely deterministically.
+                    self.deterministic_construction()
+                else:
+                    # Otherwise the poisoning process is random.
+                    # If the poisonkey is a random integer, then this integer will be used
+                    # as a key to seed the random generators.
+                    self.random_construction()
         else:
-            if '-' in self.args.poisonkey:
-                # If the poisonkey contains a dash-separated triplet like 5-3-1, then poisons are drawn
-                # entirely deterministically.
-                self.deterministic_construction()
-            else:
-                # Otherwise the poisoning process is random.
-                # If the poisonkey is a random integer, then this integer will be used
-                # as a key to seed the random generators.
-                self.random_construction()
-
+            self.init_seed = self.args.poisonkey
+            self.poison_setup = dict(poison_budget=poison_results["budget"], target_num=len(poison_results["targets"]),
+                                     poison_class=poison_results["poison_class"], target_class=poison_results["target_class"],
+                                     intended_class=poison_results["intended_class"])
+            self.poison_ids = poison_ids
+            self.poisonset = Subset(self.trainset, indices=self.poison_ids)
+            self.target_ids = list(poison_results["targets"].keys())
+            self.targetset = Subset(self.validset, indices=self.target_ids)
+            poison_num = len(self.poison_ids)
+            self.poison_lookup = dict(zip(self.poison_ids, range(poison_num)))
 
         # Generate loaders:
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=min(self.batch_size, len(self.trainset)),
-                                                       shuffle=True, drop_last=False, num_workers=num_workers, pin_memory=PIN_MEMORY)
+                                                       shuffle=True if train_ids is None else False,
+                                                       drop_last=False, num_workers=num_workers, pin_memory=PIN_MEMORY)
         self.validloader = torch.utils.data.DataLoader(self.validset, batch_size=min(self.batch_size, len(self.validset)),
                                                        shuffle=False, drop_last=False, num_workers=num_workers, pin_memory=PIN_MEMORY)
         validated_batch_size = max(min(args.pbatch, len(self.poisonset)), 1)
-        self.poisonloader = torch.utils.data.DataLoader(self.poisonset, batch_size=validated_batch_size,
-                                                        shuffle=self.args.pshuffle, drop_last=False, num_workers=num_workers,
-                                                        pin_memory=PIN_MEMORY)
+        self.poisonloader = torch.utils.data.DataLoader(self.poisonset, batch_size=validated_batch_size, shuffle=self.args.pshuffle,
+                                                        drop_last=False, num_workers=num_workers, pin_memory=PIN_MEMORY)
 
         # Ablation on a subset?
         if args.ablation < 1.0:
@@ -595,14 +605,17 @@ class Kettle():
                 pickle.dump(self.poison_ids, file, protocol=pickle.HIGHEST_PROTOCOL)
 
         elif mode == 'pickled':
-            poison_results_path = 'poisons/results.pickle'
+            poison_results_path = f'{self.args.poison_path}results.pickle'
             poison_results = dict(
                 budget=self.poison_setup["poison_budget"],
                 n_poisons=len(self.poisonset),
                 n_targets=len(self.targetset),
+                target_class=self.poison_setup["target_class"],
+                poison_class=self.poison_setup["poison_class"],
+                intended_class=self.poison_setup["intended_class"],
                 poison_delta=poison_delta,
-                poisons=dict(zip(self.poison_ids, self.poisonset.targets)),
-                targets=dict(zip(self.target_ids, self.targetset.targets)),
+                poisons=dict(zip(self.poison_ids, [self.poisonset.targets[i] for i in self.poison_ids])),
+                targets=dict(zip(self.target_ids, [self.targetset.targets[i] for i in self.poison_ids])),
                 target_intended_label=self.poison_setup["intended_class"]
             )
             with open(poison_results_path, 'wb') as filehandle:
