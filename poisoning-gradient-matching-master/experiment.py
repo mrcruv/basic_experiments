@@ -40,7 +40,7 @@ if __name__ == "__main__":
     # Split the poison delta with respect to the poison ids subgroups
     poison_deltas = split_poison_delta(poisonset, poison_delta, poison_ids_subgroups, k)
 
-    poisoned_models_stats, clean_model_stats, EPIC_models_stats = [], [], []
+    poisoned_models_stats, clean_models_stats, EPIC_models_stats = [], [], []
     poisoned_models, clean_models, EPIC_models = ([forest.Victim(args, setup=setup) for _ in range(k)],
                                                   [forest.Victim(args, setup=setup) for _ in range(k)],
                                                   [forest.Victim(args, setup=setup) for _ in range(k)])
@@ -50,3 +50,14 @@ if __name__ == "__main__":
     kettles = [forest.Kettle(args, batch_size, augmentations, setup=dict(device=torch.device('cpu'), dtype=torch.float),
                              train_ids=clean_ids_subgroups[i], poison_ids=poison_ids_subgroups[i],
                              poison_results=poison_results) for i in range(k)]
+
+    for i in range(k):
+        poisoned_models[i].retrain(kettles[i], poison_deltas[i])
+        poisoned_models_stats.append(poisoned_models[i].validate(kettles[i], poison_deltas[i]))
+        print(poisoned_models_stats[i])
+
+    for i in range(k):
+        clean_models[i].train(kettles[i])
+        clean_models_stats.append(clean_models[i].validate(kettles[i], poison_deltas[i]))
+        print(clean_models_stats[i])
+
