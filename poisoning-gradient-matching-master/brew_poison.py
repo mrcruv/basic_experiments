@@ -7,6 +7,7 @@ import datetime
 import time
 
 import forest
+
 torch.backends.cudnn.benchmark = forest.consts.BENCHMARK
 torch.multiprocessing.set_sharing_strategy(forest.consts.SHARING_STRATEGY)
 
@@ -15,7 +16,6 @@ args = forest.options().parse_args()
 # 100% reproducibility?
 if args.deterministic:
     forest.utils.set_deterministic()
-
 
 if __name__ == "__main__":
 
@@ -75,8 +75,3 @@ if __name__ == "__main__":
     print(f'--------------------------- brew time: {str(datetime.timedelta(seconds=brew_time - train_time))}')
     print(f'--------------------------- test time: {str(datetime.timedelta(seconds=test_time - brew_time))}')
     print('-------------Job finished.-------------------------')
-
-    if args.save == 'pickled':
-        with open('poisons/results.pickle', 'rb') as filehandle:
-            poison_results = pickle.load(filehandle)
-        print(poison_results)
