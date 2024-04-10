@@ -47,7 +47,7 @@ if __name__ == "__main__":
     batch_size = poisoned_models[0].defs.batch_size
     augmentations = poisoned_models[0].defs.augmentations
 
-    kettles = [forest.Kettle(args, batch_size, augmentations, setup=dict(device=torch.device('cpu'), dtype=torch.float),
+    kettles = [forest.Kettle(args, batch_size, augmentations, setup=setup,
                              train_ids=clean_ids_subgroups[i], poison_ids=poison_ids_subgroups[i],
                              poison_results=poison_results) for i in range(k)]
 
