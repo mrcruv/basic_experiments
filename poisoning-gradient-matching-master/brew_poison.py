@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """General interface script to launch poisoning jobs."""
 import pickle
 
