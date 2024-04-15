@@ -59,7 +59,7 @@ def main():
     parser.add_argument('--arch', default='resnet18', type=str, choices=['resnet18', 'vgg16'],
                         help='dataset name')
     parser.add_argument('--epochs', default=200, type=int,
-                        help='number of epochs', choices=(200, 40, 80))
+                        help='number of epochs', choices=(200, 40, 80, 1, 2, 0))
     parser.add_argument('--batch-size', default=128, type=int,
                         help='train batchsize')
     parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
@@ -147,7 +147,7 @@ def main():
             sum(p.numel() for p in model.parameters())/1e6))
         return model
 
-    device = torch.device('cuda', args.gpu_id)
+    device = torch.device('cuda', args.gpu_id) if torch.cuda.is_available() else torch.device('cpu')
     args.world_size = 1
     args.n_gpu = torch.cuda.device_count()
 
@@ -235,7 +235,7 @@ def main():
         raise NotImplementedError('Only CIFAR-10 and TinyImageNet are supported.')
 
     args.train_size = len(base_dataset)
-    
+
     if args.clean:
         train_dataset = PoisonedDataset(
             trainset=base_dataset, 
@@ -264,15 +264,35 @@ def main():
                 for i in poison_indices:
                     poison_tuples.append((to_pil(np.uint8(poison_data['xtrain'][i])), poison_data['ytrain'][i]))
         else:
+            to_pil = transforms.ToPILImage()
             with open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle:
-                poison_tuples = pickle.load(handle)
+                poison_results = pickle.load(handle)
+                poison_ids = [idx.item() for idx in poison_results["poisons"].keys()]
+                poison_delta = poison_results["poison_delta"]
+                curr_poison_delta_idx = 0
+                poison_tuples = []
+                for idx in poison_ids:
+                    poison_sample = torch.tensor(base_dataset.data[idx])
+                    poison_label = base_dataset.targets[idx]
+                    curr_poison_delta = poison_delta[curr_poison_delta_idx].T
+                    poison_sample = torch.add(poison_sample, curr_poison_delta)
+                    poison_tuples.append((to_pil(np.uint8(poison_sample)), poison_label))
                 logger.info(f"{len(poison_tuples)} poisons in this trial.")
                 poisoned_label = poison_tuples[0][1]
-            with open(os.path.join(args.poisons_path, "base_indices.pickle"), "rb") as handle:
-                poison_indices = pickle.load(handle)
-            target_img, target_class = get_target(args, transform_val)
+            poison_indices = poison_ids
+            target_img_ids = []
+            target_samples = []
+            target_imgs = []
+            for target_idx in poison_results["targets"].keys():
+                target_img_ids.append(target_idx)
+                curr_target_sample = torch.tensor(test_dataset.data[target_idx])
+                target_samples.append(curr_target_sample)
+                curr_target_img = transforms.ToTensor()(to_pil(np.uint8(curr_target_sample))) # (should normalize too!)
+                target_imgs.append(curr_target_img)
+            target_img = target_imgs[0]
+            target_class = poison_results["target_class"]
         train_dataset = PoisonedDataset(
-            trainset=base_dataset, 
+            trainset=base_dataset,
             indices=np.array(range(len(base_dataset))), 
             poison_instances=poison_tuples, 
             poison_indices=poison_indices,
