@@ -7,6 +7,8 @@ import shutil
 import time
 
 import pickle
+
+import PIL
 import numpy as np
 from tqdm import tqdm
 
@@ -27,7 +29,7 @@ from utils.subset import get_coreset, get_random_subset
 from dataset.poison import PoisonedDataset
 from dataset.cifar import get_target, cifar10_mean, cifar10_std
 from dataset.tinyimagenet_module import TinyImageNet, tinyimagenet_mean, tinyimagenet_std
-
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 best_acc = 0
@@ -268,35 +270,35 @@ def main():
             to_pil = transforms.ToPILImage()
             with open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle:
                 poison_results = pickle.load(handle)
-                poison_ids = [idx for idx in poison_results["poisons"].keys()]
+                poison_indices = [idx for idx in poison_results["poisons"].keys()]
+                n_poisons = poison_results["n_poisons"]
+                poison_lookup = dict(zip(poison_indices, range(n_poisons)))
                 poison_delta = poison_results["poison_delta"]
-                curr_poison_delta_idx = 0
                 poison_tuples = []
-                for idx in poison_ids:
+                for idx in poison_indices:
                     poison_sample = torch.tensor(base_dataset.data[idx])
+                    # plt.imshow(poison_sample)
+                    # plt.show()
                     poison_label = base_dataset.targets[idx]
-                    curr_poison_delta = poison_delta[curr_poison_delta_idx].T
+                    curr_poison_delta_idx = poison_lookup[idx]
+                    curr_poison_delta = poison_delta[curr_poison_delta_idx].permute((1, 2, 0))
+                    # plt.imshow(curr_poison_delta)
+                    # plt.show()
                     poison_sample = torch.add(poison_sample, curr_poison_delta)
-                    poison_tuples.append((to_pil(np.uint8(poison_sample)), poison_label))
-                    curr_poison_delta_idx += 1
+                    # plt.imshow(poison_sample)
+                    # plt.show()
+                    poison_tuples.append((to_pil(poison_sample.numpy()), poison_label))
                 logger.info(f"{len(poison_tuples)} poisons in this trial.")
                 poisoned_label = poison_tuples[0][1]
-            poison_indices = poison_ids
-            target_img_ids = []
-            target_samples = []
-            target_imgs = []
-            for target_idx in poison_results["targets"].keys():
-                target_img_ids.append(target_idx)
-                curr_target_sample = torch.tensor(test_dataset.data[target_idx])
-                target_samples.append(curr_target_sample)
-                curr_target_img = transforms.ToTensor()(to_pil(np.uint8(curr_target_sample))) # (should normalize too!)
-                target_imgs.append(curr_target_img)
-            target_img = target_imgs[0]
+            # assuming only a single target
+            target_idx = [idx for idx in poison_results["targets"].keys()][0]
+            target_img = test_dataset.data[target_idx]
             target_class = poison_results["target_class"]
+
         train_dataset = PoisonedDataset(
             trainset=base_dataset,
-            indices=np.array(range(len(base_dataset))), 
-            poison_instances=poison_tuples, 
+            indices=np.array(range(len(base_dataset))),
+            poison_instances=poison_tuples,
             poison_indices=poison_indices,
             transform=transform_train,
             return_index=True,
