@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import logging
 import os
@@ -59,7 +60,7 @@ def main():
     parser.add_argument('--arch', default='resnet18', type=str, choices=['resnet18', 'vgg16'],
                         help='dataset name')
     parser.add_argument('--epochs', default=200, type=int,
-                        help='number of epochs', choices=(200, 40, 80, 1, 2, 0))
+                        help='number of epochs', choices=(200, 40, 80, 1))
     parser.add_argument('--batch-size', default=128, type=int,
                         help='train batchsize')
     parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
@@ -267,7 +268,7 @@ def main():
             to_pil = transforms.ToPILImage()
             with open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle:
                 poison_results = pickle.load(handle)
-                poison_ids = [idx.item() for idx in poison_results["poisons"].keys()]
+                poison_ids = [idx for idx in poison_results["poisons"].keys()]
                 poison_delta = poison_results["poison_delta"]
                 curr_poison_delta_idx = 0
                 poison_tuples = []
@@ -277,6 +278,7 @@ def main():
                     curr_poison_delta = poison_delta[curr_poison_delta_idx].T
                     poison_sample = torch.add(poison_sample, curr_poison_delta)
                     poison_tuples.append((to_pil(np.uint8(poison_sample)), poison_label))
+                    curr_poison_delta_idx += 1
                 logger.info(f"{len(poison_tuples)} poisons in this trial.")
                 poisoned_label = poison_tuples[0][1]
             poison_indices = poison_ids
