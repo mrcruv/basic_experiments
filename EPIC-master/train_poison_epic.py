@@ -292,7 +292,7 @@ def main():
                 poisoned_label = poison_tuples[0][1]
             # assuming only a single target
             target_idx = [idx for idx in poison_results["targets"].keys()][0]
-            target_img = test_dataset.data[target_idx]
+            target_img = transforms.ToTensor()(test_dataset.data[target_idx])
             target_class = poison_results["target_class"]
 
         train_dataset = PoisonedDataset(
