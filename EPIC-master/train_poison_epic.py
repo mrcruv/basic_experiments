@@ -268,33 +268,21 @@ def main():
                     poison_tuples.append((to_pil(np.uint8(poison_data['xtrain'][i])), poison_data['ytrain'][i]))
         else:
             to_pil = transforms.ToPILImage()
-            with open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle:
+            with (open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle):
                 poison_results = pickle.load(handle)
                 poison_indices = [idx for idx in poison_results["poisons"].keys()]
                 n_poisons = poison_results["n_poisons"]
-                poison_lookup = dict(zip(poison_indices, range(n_poisons)))
+                # poison_lookup = dict(zip(poison_indices, range(n_poisons)))
                 poison_delta = poison_results["poison_delta"]
-                poison_tuples = []
-                for idx in poison_indices:
-                    poison_sample = torch.tensor(base_dataset.data[idx])
-                    # plt.imshow(poison_sample)
-                    # plt.show()
-                    poison_label = base_dataset.targets[idx]
-                    curr_poison_delta_idx = poison_lookup[idx]
-                    curr_poison_delta = poison_delta[curr_poison_delta_idx].permute((1, 2, 0))
-                    # plt.imshow(curr_poison_delta)
-                    # plt.show()
-                    poison_sample = torch.add(poison_sample, curr_poison_delta)
-                    # plt.imshow(poison_sample)
-                    # plt.show()
-                    poison_tuples.append((to_pil(poison_sample.numpy()), poison_label))
+                poison_samples = base_dataset.data[poison_indices].astype(dtype="float32") / 255 + poison_delta.numpy().transpose((0, 2, 3, 1))
+                poison_label = poison_results["poison_class"]
+                poison_tuples = list(zip(list(map(to_pil, poison_samples)), [poison_label]*n_poisons))
                 logger.info(f"{len(poison_tuples)} poisons in this trial.")
-                poisoned_label = poison_tuples[0][1]
-            # assuming only a single target
-            target_idx = [idx for idx in poison_results["targets"].keys()][0]
-            target_img = transforms.ToTensor()(test_dataset.data[target_idx])
-            target_class = poison_results["target_class"]
-
+                poisoned_label = poison_results["intended_class"]
+                # assuming only a single target
+                target_idx = [idx for idx in poison_results["targets"].keys()][0]
+                target_img = transforms.ToTensor()(test_dataset.data[target_idx])
+                target_class = poison_results["target_class"]
         train_dataset = PoisonedDataset(
             trainset=base_dataset,
             indices=np.array(range(len(base_dataset))),
