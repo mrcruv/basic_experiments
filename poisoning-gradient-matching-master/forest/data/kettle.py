@@ -615,8 +615,7 @@ class Kettle():
                 intended_class=self.poison_setup["intended_class"],
                 poison_delta=poison_delta,
                 poisons=dict(zip(self.poison_ids, [self.poisonset.targets[i] for i in self.poison_ids])),
-                targets=dict(zip(self.target_ids, [self.targetset.targets[i] for i in self.poison_ids])),
-                target_intended_label=self.poison_setup["intended_class"]
+                targets=dict(zip(self.target_ids, [self.targetset.targets[i] for i in self.poison_ids]))
             )
             with open(poison_results_path, 'wb') as filehandle:
                 pickle.dump(poison_results, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
