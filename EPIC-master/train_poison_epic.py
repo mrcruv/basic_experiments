@@ -62,7 +62,7 @@ def main():
     parser.add_argument('--arch', default='resnet18', type=str, choices=['resnet18', 'vgg16'],
                         help='dataset name')
     parser.add_argument('--epochs', default=200, type=int,
-                        help='number of epochs', choices=(200, 40, 80, 1))
+                        help='number of epochs', choices=(200, 40, 80, 20))
     parser.add_argument('--batch-size', default=128, type=int,
                         help='train batchsize')
     parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
@@ -270,19 +270,53 @@ def main():
             to_pil = transforms.ToPILImage()
             with (open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle):
                 poison_results = pickle.load(handle)
-                poison_indices = [idx for idx in poison_results["poisons"].keys()]
+                poison_indices = [idx.item() for idx in poison_results["poisons"].keys()]
                 n_poisons = poison_results["n_poisons"]
-                # poison_lookup = dict(zip(poison_indices, range(n_poisons)))
+                poison_lookup = dict(zip(poison_indices, range(n_poisons)))
                 poison_delta = poison_results["poison_delta"]
-                poison_samples = base_dataset.data[poison_indices].astype(dtype="float32") / 255 + poison_delta.numpy().transpose((0, 2, 3, 1))
+
                 poison_label = poison_results["poison_class"]
-                poison_tuples = list(zip(list(map(to_pil, poison_samples)), [poison_label]*n_poisons))
+                poison_tuples = []
+                dm = torch.tensor(mean)[:, None, None]
+                ds = torch.tensor(std)[:, None, None]
+                idx = 0
+                for input, label in base_dataset:
+                    lookup = poison_lookup.get(idx)
+                    if lookup is not None:
+                        # plt.imshow(input)
+                        # plt.show()
+                        delta = poison_delta[lookup, :, :, :]
+                        # plt.imshow(delta.numpy().transpose((1, 2, 0)))
+                        # plt.show()
+                        input = transforms.ToTensor()(input)
+                        input += delta
+                        # plt.imshow(input.numpy().transpose((1, 2, 0)))
+                        # plt.show()
+
+                        image_denormalized = torch.clamp(input * ds + dm, 0, 1)
+                        image_torch_uint8 = image_denormalized.mul(255).add_(0.5).clamp_(0, 255).to('cpu', torch.uint8)
+                        # image_PIL = to_pil(image_torch_uint8)
+                        image_torch_uint8 = image_torch_uint8.numpy().transpose((1, 2, 0))
+                        image_PIL = to_pil(image_torch_uint8)
+                        poison_tuples.append((image_PIL, poison_label))
+                        base_dataset.data[idx] = image_PIL
+                    idx += 1
+
+                # poison_label = poison_results["poison_class"]
+                # poison_tuples = list(zip(list(map(to_pil, poison_samples)), [poison_label]*n_poisons))
                 logger.info(f"{len(poison_tuples)} poisons in this trial.")
-                poisoned_label = poison_results["intended_class"]
+                poisoned_label = poison_results["intended_class"][0]
                 # assuming only a single target
                 target_idx = [idx for idx in poison_results["targets"].keys()][0]
-                target_img = transforms.ToTensor()(test_dataset.data[target_idx])
+                target_img = test_dataset.data[target_idx]
+                # plt.imshow(target_img)
+                # plt.show()
+                target_img = to_pil(target_img)
+                target_img = transform_val(target_img)
+                # plt.imshow(target_img.numpy().transpose((1, 2, 0)))
+                # plt.show()
                 target_class = poison_results["target_class"]
+                transform_train = transform_val
         train_dataset = PoisonedDataset(
             trainset=base_dataset,
             indices=np.array(range(len(base_dataset))),
@@ -508,7 +542,7 @@ def train(args, trainloader, test_loader, model, optimizer, scheduler, target_im
             p_acc = (target_pred == poisoned_label)
             t_acc = (target_pred == target_class)
 
-        print(f"Poison acc: {p_acc}")
+        print(f"Poison acc: {p_acc}, target class: {target_class}, target prediction: {target_pred}, objective: {poisoned_label}")
         scheduler.step()
 
         is_best = test_acc > best_acc
