@@ -270,9 +270,11 @@ def main():
             to_pil = transforms.ToPILImage()
             with open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle:
                 poison_results = pickle.load(handle)
-                poison_indices = [idx.item() for idx in poison_results["poisons"].keys()]
+                # poison_indices = [idx.item() for idx in poison_results["poisons"].keys()]
+                poison_indices = poison_results["poison_ids"]
                 n_poisons = poison_results["n_poisons"]
-                poison_lookup = dict(zip(poison_indices, range(n_poisons)))
+                # poison_lookup = dict(zip(poison_indices, range(n_poisons)))
+                poison_lookup = poison_results["poison_lookup"]
                 poison_delta = poison_results["poison_delta"]
 
                 poison_label = poison_results["poison_class"]
