@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/opt/conda/bin/python3.7
 import argparse
 import logging
 import os
@@ -6,7 +6,7 @@ import random
 import shutil
 import time
 
-import pickle
+import pickle5 as pickle
 
 import PIL
 import numpy as np
@@ -268,7 +268,7 @@ def main():
                     poison_tuples.append((to_pil(np.uint8(poison_data['xtrain'][i])), poison_data['ytrain'][i]))
         else:
             to_pil = transforms.ToPILImage()
-            with (open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle):
+            with open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle:
                 poison_results = pickle.load(handle)
                 poison_indices = [idx.item() for idx in poison_results["poisons"].keys()]
                 n_poisons = poison_results["n_poisons"]
