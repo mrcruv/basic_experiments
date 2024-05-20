@@ -614,6 +614,9 @@ class Kettle():
                 poison_class=self.poison_setup["poison_class"],
                 intended_class=self.poison_setup["intended_class"],
                 poison_delta=poison_delta,
+                poison_lookup=self.poison_lookup,
+                poison_ids=self.poison_ids,
+                target_ids=self.target_ids,
                 poisons=dict(zip(self.poison_ids, [self.poisonset.targets[i] for i in self.poison_ids])),
                 targets=dict(zip(self.target_ids, [self.targetset.targets[i] for i in self.target_ids]))
             )
