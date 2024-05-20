@@ -271,13 +271,10 @@ def main():
             to_pil = transforms.ToPILImage()
             with open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle:
                 poison_results = pickle.load(handle)
-                # poison_indices = [idx.item() for idx in poison_results["poisons"].keys()]
                 poison_indices = poison_results["poison_ids"]
                 n_poisons = poison_results["n_poisons"]
-                # poison_lookup = dict(zip(poison_indices, range(n_poisons)))
                 poison_lookup = poison_results["poison_lookup"]
                 poison_delta = poison_results["poison_delta"]
-
                 poison_label = poison_results["poison_class"]
                 poison_tuples = []
                 dm = torch.tensor(mean)[:, None, None]
@@ -289,6 +286,8 @@ def main():
                     # plt.imshow(input)
                     # plt.show()
                     delta = poison_delta[lookup]
+                    # plt.imshow(delta.numpy().transpose((1, 2, 0)))
+                    # plt.show()
                     input = transforms.ToTensor()(input)
                     input = transforms.Normalize(mean=dm, std=ds, inplace=True)(input)
                     input += delta
@@ -296,54 +295,24 @@ def main():
                     # plt.show()
                     image_denormalized = torch.clamp(input * ds + dm, 0, 1)
                     image_torch_uint8 = image_denormalized.mul(255).add_(0.5).clamp_(0, 255).to('cpu', torch.uint8)
-                    # image_PIL = to_pil(image_torch_uint8)
                     image_torch_uint8 = image_torch_uint8.numpy().transpose((1, 2, 0))
                     # plt.imshow(image_torch_uint8)
                     # plt.show()
                     image_PIL = to_pil(image_torch_uint8)
                     poison_tuples.append((image_PIL, poison_label))
-                    base_dataset.data[idx] = image_PIL
+                    # base_dataset.data[idx] = image_PIL
 
-                # idx = 0
-                # for input, label in base_dataset:
-                #     lookup = poison_lookup.get(idx)
-                #     if lookup is not None:
-                #         plt.imshow(input)
-                #         plt.show()
-                #         delta = poison_delta[lookup, :, :, :]
-                #         plt.imshow(delta.numpy().transpose((1, 2, 0)))
-                #         plt.show()
-                #         input = transforms.ToTensor()(input)
-                #         input += delta
-                #         plt.imshow(input.numpy().transpose((1, 2, 0)))
-                #         plt.show()
-                #
-                #         image_denormalized = torch.clamp(input * ds + dm, 0, 1)
-                #         image_torch_uint8 = image_denormalized.mul(255).add_(0.5).clamp_(0, 255).to('cpu', torch.uint8)
-                #         # image_PIL = to_pil(image_torch_uint8)
-                #         image_torch_uint8 = image_torch_uint8.numpy().transpose((1, 2, 0))
-                #         plt.imshow(image_torch_uint8)
-                #         plt.show()
-                #         image_PIL = to_pil(image_torch_uint8)
-                #         poison_tuples.append((image_PIL, poison_label))
-                #         base_dataset.data[idx] = image_PIL
-                #     idx += 1
-
-                # poison_label = poison_results["poison_class"]
-                # poison_tuples = list(zip(list(map(to_pil, poison_samples)), [poison_label]*n_poisons))
                 logger.info(f"{len(poison_tuples)} poisons in this trial.")
                 poisoned_label = poison_results["intended_class"][0]
-                # assuming only a single target
-                # target_idx = [idx for idx in poison_results["targets"].keys()][0]
                 target_idx = poison_results["target_ids"][0]
                 target_img = test_dataset.data[target_idx]
                 # plt.imshow(target_img)
                 # plt.show()
                 target_img = to_pil(target_img)
                 target_img = transform_val(target_img)
-                # plt.imshow(target_img.numpy().transpose((1, 2, 0)))
+                plt.imshow(target_img.numpy().transpose((1, 2, 0)))
                 # plt.show()
-                target_class = poison_results["target_class"]
+                # target_class = poison_results["target_class"]
                 transform_train = transform_val
         train_dataset = PoisonedDataset(
             trainset=base_dataset,
