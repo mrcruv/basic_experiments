@@ -310,9 +310,9 @@ def main():
                 # plt.show()
                 target_img = to_pil(target_img)
                 target_img = transform_val(target_img)
-                plt.imshow(target_img.numpy().transpose((1, 2, 0)))
+                # plt.imshow(target_img.numpy().transpose((1, 2, 0)))
                 # plt.show()
-                # target_class = poison_results["target_class"]
+                target_class = poison_results["target_class"]
                 transform_train = transform_val
         train_dataset = PoisonedDataset(
             trainset=base_dataset,
