@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     trainset = CIFAR10(root=args.data_path, train=True, download=True)
     validset = CIFAR10(root=args.data_path, train=False, download=True)
-    poison_ids = poison_results["poison_ids"]
+    poison_ids = list(poison_results["poison_ids"].numpy())
     poison_delta = poison_results["poison_delta"]
     poisonset = Subset(trainset, poison_ids)
 
