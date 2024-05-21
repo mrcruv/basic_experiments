@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     trainset = CIFAR10(root=args.data_path, train=True, download=True)
     validset = CIFAR10(root=args.data_path, train=False, download=True)
-    poison_ids = [idx.item() for idx in poison_results["poisons"].keys()]
+    poison_ids = poison_results["poison_ids"]
     poison_delta = poison_results["poison_delta"]
     poisonset = Subset(trainset, poison_ids)
 
@@ -63,10 +63,12 @@ if __name__ == "__main__":
     for i in range(k):
         poisoned_models[i].retrain(kettles[i], poison_deltas[i])
         poisoned_models_stats.append(poisoned_models[i].validate(kettles[i], poison_deltas[i]))
+        print(f"Poisoned model #{i} statistics:")
         print(poisoned_models_stats[i])
 
     for i in range(k):
         clean_models[i].train(kettles[i])
         clean_models_stats.append(clean_models[i].validate(kettles[i], poison_deltas[i]))
+        print(f"Clean model #{i} statistics:")
         print(clean_models_stats[i])
 
