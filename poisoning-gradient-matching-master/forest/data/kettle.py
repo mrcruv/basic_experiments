@@ -145,7 +145,6 @@ class Kettle():
         else:
             worker_count = 0
         # worker_count = 200
-        worker_count = 0
         print(f'Data is loaded with {worker_count} workers.')
         return worker_count
 
@@ -605,9 +604,11 @@ class Kettle():
                 pickle.dump(self.poison_ids, file, protocol=pickle.HIGHEST_PROTOCOL)
 
         elif mode == 'pickled':
-            poison_results_path = f'{self.args.poison_path}results.pickle'
             poison_results = dict(
                 budget=self.poison_setup["poison_budget"],
+                eps=self.args.eps,
+                recipe=self.args.recipe,
+                poisonkey=self.args.poisonkey,
                 n_poisons=len(self.poisonset),
                 n_targets=len(self.targetset),
                 target_class=self.poison_setup["target_class"],
@@ -616,10 +617,9 @@ class Kettle():
                 poison_delta=poison_delta,
                 poison_lookup=self.poison_lookup,
                 poison_ids=self.poison_ids,
-                target_ids=self.target_ids,
-                poisons=dict(zip(self.poison_ids, [self.poisonset.targets[i] for i in self.poison_ids])),
-                targets=dict(zip(self.target_ids, [self.targetset.targets[i] for i in self.target_ids]))
+                target_ids=torch.from_numpy(self.target_ids)
             )
+            poison_results_path = f'{self.args.poison_path}poisons_budget{poison_results["budget"]}_eps{poison_results["eps"]}.pickle'
             with open(poison_results_path, 'wb') as filehandle:
                 pickle.dump(poison_results, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
 
