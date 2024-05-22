@@ -617,7 +617,7 @@ class Kettle():
                 poison_delta=poison_delta,
                 poison_lookup=self.poison_lookup,
                 poison_ids=self.poison_ids,
-                target_ids=torch.from_numpy(self.target_ids)
+                target_ids=self.target_ids
             )
             poison_results_path = f'{self.args.poison_path}poisons_budget{poison_results["budget"]}_eps{poison_results["eps"]}.pickle'
             with open(poison_results_path, 'wb') as filehandle:
