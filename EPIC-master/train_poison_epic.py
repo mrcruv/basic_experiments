@@ -191,26 +191,11 @@ def main():
         poison_indices = []
         poison_tuples = []
     elif args.poisons_path is not None:
-        # load the poisons and their indices within the training set from pickled files
         if os.path.isfile(args.poisons_path):
             with open(args.poisons_path, "rb") as handle:
-                print(f"Loading MetaPoison datasets...")
                 if args.no_aug:
                     transform_train = transform_val
-                poison_data = pickle.load(handle)
                 to_pil = transforms.ToPILImage()
-                base_dataset.data = np.uint8(poison_data['xtrain'])
-                base_dataset.targets = poison_data['ytrain']
-                target_img = transform_val(to_pil(np.uint8(poison_data['xtarget'][0])))
-                target_class = poison_data['ytarget'][0]
-                poisoned_label = poison_data['ytargetadv'][0]
-                poison_indices = np.array(range(5000*poisoned_label, 5000*poisoned_label+500))
-                poison_tuples = []
-                for i in poison_indices:
-                    poison_tuples.append((to_pil(np.uint8(poison_data['xtrain'][i])), poison_data['ytrain'][i]))
-        else:
-            to_pil = transforms.ToPILImage()
-            with open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle:
                 poison_results = pickle.load(handle)
                 poison_indices = poison_results["poison_ids"].numpy()
                 n_poisons = poison_results["n_poisons"]
@@ -241,7 +226,7 @@ def main():
                     # plt.show()
                     image_PIL = to_pil(image_torch_uint8)
                     poison_tuples.append((image_PIL, poison_label))
-                    # base_dataset.data[idx] = image_PIL
+                    base_dataset.data[idx] = image_PIL
 
                 logger.info(f"{len(poison_tuples)} poisons in this trial.")
                 poisoned_label = poison_results["intended_class"][0]
@@ -254,7 +239,15 @@ def main():
                 # plt.imshow(target_img.numpy().transpose((1, 2, 0)))
                 # plt.show()
                 target_class = poison_results["target_class"]
-                transform_train = transform_val
+        else:
+            with open(os.path.join(args.poisons_path, "poisons.pickle"), "rb") as handle:
+                poison_tuples = pickle.load(handle)
+                logger.info(f"{len(poison_tuples)} poisons in this trial.")
+                poisoned_label = poison_tuples[0][1]
+            with open(os.path.join(args.poisons_path, "base_indices.pickle"), "rb") as handle:
+                poison_indices = pickle.load(handle)
+            target_img, target_class = get_target(args, transform_val)
+
         train_dataset = PoisonedDataset(
             trainset=base_dataset,
             indices=np.array(range(len(base_dataset))),
@@ -396,6 +389,16 @@ def train(args, trainloader, test_loader, model, optimizer, scheduler, target_im
                 subset = get_subset(args, model, train_val_loader, B, epoch, N, train_dataset.indices)
             keep = np.where(times_selected[subset] == epoch)[0]
             subset = subset[keep]
+
+            all_ids = np.array(range(0, args.train_size))
+            dropped_samples_ids = np.array(idx for idx in all_ids if idx not in subset)
+            dropped_poisons_ids = np.array(idx for idx in dropped_samples_ids if idx in poison_indices)
+            dropped_FPs_ids = np.array(idx for idx in dropped_samples_ids if idx not in poison_indices)
+            remaining_poisons_ids = np.array(idx for idx in poison_indices if idx not in dropped_poisons_ids)
+            print(
+                f"EPOCH {epoch} | # samples dropped: {len(dropped_samples_ids)}, # poisons dropped: {len(dropped_poisons_ids)},"
+                f"# FPs dropped: {len(dropped_FPs_ids)}, # remaining poisons: {len(remaining_poisons_ids)}")
+
             pruned_dataset = PoisonedDataset(
                 trainset=base_dataset, 
                 indices=subset, 
